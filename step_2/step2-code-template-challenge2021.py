@@ -4,7 +4,7 @@ from random import randint
 
 # -*- coding: utf-8 -*-
 """
-FRAMEWORK FOR DATAMINING CLASS
+FRAMEWORK FOR DATA MINING CLASS
 
 #### IDENTIFICATION
 NAME:

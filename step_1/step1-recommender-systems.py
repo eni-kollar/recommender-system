@@ -97,3 +97,6 @@ with open(submission_file, 'w') as submission_writer:
     
     #Writes it dowmn
     submission_writer.write(predictions)
+
+
+# if __name__ == "__main__":
