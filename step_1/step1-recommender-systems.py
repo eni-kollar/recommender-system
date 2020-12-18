@@ -34,7 +34,22 @@ ratings_description = pd.read_csv(ratings_file, delimiter=';',
                                   names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'], header=None)
 
-user_movie_matrix = np.empty((users_description.size, movies_description.size))
+def predict_test(movies, users, ratings, predictions):
+    populate_user_movie_matrix(movies, users, ratings)
+
+
+#####
+##
+## POPULATE USER/MOVIE MATRIX
+##
+#####
+
+def populate_user_movie_matrix(movies, users, ratings):
+    user_movie_matrix = np.empty((users.size + 1, movies.size + 1))
+    #print(user_movie_matrix)
+    for i in range(0, len(ratings)):
+        user_movie_matrix[ratings.iloc[[i]]['userID'], ratings.iloc[[i]]['movieID']] = ratings.iloc[[i]]['rating']
+        print('user: ' , ratings.iloc[[i]]['userID'] , 'movie: ' , ratings.iloc[[i]]['movieID'] , 'rating: ' , ratings.iloc[[i]]['rating'])
 
 
 #####
@@ -94,7 +109,8 @@ def predict_random(movies, users, ratings, predictions):
 #####
 
 ## //!!\\ TO CHANGE by your prediction function
-predictions = predict_random(movies_description, users_description, ratings_description, predictions_description)
+#predictions = predict_random(movies_description, users_description, ratings_description, predictions_description)
+predictions = predict_test(movies_description, users_description, ratings_description, predictions_description)
 
 # Save predictions, should be in the form 'list of tuples' or 'list of lists'
 with open(submission_file, 'w') as submission_writer:
