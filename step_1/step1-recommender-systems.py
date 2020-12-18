@@ -38,16 +38,28 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 #####
 
 
+# def create_user_movie_matrix(movies, users, ratings):
+#     # users are rows, movies are columns
+#     user_movie_matrix = np.empty((users.size + 1, movies.size + 1))
+#     for i in range(0, 1000):  # len(ratings)
+#         user = ratings.iloc[[i]]['userID']
+#         movie = ratings.iloc[[i]]['movieID']
+#         rating = ratings.iloc[[i]]['rating']
+#         user_movie_matrix[user, movie] = rating
+#     print("finished")
+#     print(user_movie_matrix)
+#     return user_movie_matrix
+
+
 def create_user_movie_matrix(movies, users, ratings):
-    # users are rows, movies are columns
     user_movie_matrix = np.empty((users.size + 1, movies.size + 1))
-    for i in range(0, 1000):  # len(ratings)
-        user = ratings.iloc[[i]]['userID']
-        movie = ratings.iloc[[i]]['movieID']
-        rating = ratings.iloc[[i]]['rating']
-        user_movie_matrix[user, movie] = rating
-    print("finished")
-    print(user_movie_matrix)
+    #print(user_movie_matrix)
+    for i in range(0, 5):
+        user_movie_matrix[ratings.iloc[i]['userID'], ratings.iloc[i]['movieID']] = ratings.iloc[i]['rating']
+        # print(ratings.iloc[i]['userID'], ratings.iloc[i]['movieID'], ratings.iloc[i]['rating'])
+        # print(ratings.iloc[i]['userID'])
+    # print(user_movie_matrix)
+
     return user_movie_matrix
 
 #####
@@ -92,6 +104,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     # 2. With this matrix you can compute the utility matrix containing the similarities between the users
     # Use Jaccard similarity  J(A, B) = (A intersect B) / (A union B) = (A intersect B) / (A + B - (A intersect B))
     user_user_similarity_matrix = pearson_correlation_coefficient(user_movie_matrix, users)
+    # 3. You can use these similarities to predict the ratings given in the Predictions file(Predictions.csv).
     pass
 
 
