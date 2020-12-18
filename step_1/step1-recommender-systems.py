@@ -35,7 +35,9 @@ ratings_description = pd.read_csv(ratings_file, delimiter=';',
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'], header=None)
 
 def predict_test(movies, users, ratings, predictions):
-    populate_user_movie_matrix(movies, users, ratings)
+    user_movie_matrix = populate_user_movie_matrix(movies, users, ratings)
+    user_sim_matrix = create_user_similarity_matrix(users, user_movie_matrix)
+    print(user_sim_matrix)
 
 
 #####
@@ -48,9 +50,36 @@ def populate_user_movie_matrix(movies, users, ratings):
     user_movie_matrix = np.empty((users.size + 1, movies.size + 1))
     #print(user_movie_matrix)
     for i in range(0, len(ratings)):
-        user_movie_matrix[ratings.iloc[[i]]['userID'], ratings.iloc[[i]]['movieID']] = ratings.iloc[[i]]['rating']
-        print('user: ' , ratings.iloc[[i]]['userID'] , 'movie: ' , ratings.iloc[[i]]['movieID'] , 'rating: ' , ratings.iloc[[i]]['rating'])
+        user_movie_matrix[ratings.iloc[i]['userID'], ratings.iloc[i]['movieID']] = ratings.iloc[i]['rating']
+        # print(ratings.iloc[i]['userID'], ratings.iloc[i]['movieID'], ratings.iloc[i]['rating'])
+        # print(ratings.iloc[i]['userID'])
+    # print(user_movie_matrix)
 
+    return user_movie_matrix
+
+#####
+##
+## CREATE USER/USER SIMILARITY MATRIX
+##
+#####
+
+def create_user_similarity_matrix(users, user_movie_matrix):
+    user_sim_matrix = np.empty((users.size + 1, users.size + 1))
+    for i in range(0, len(users)):
+        for j in range(i, len(users)):
+            if i == 0 or j == 0:
+                user_sim_matrix[i][j] = 0
+            else:
+                user_1 = users.iloc[i]['userID']
+                user_2 = users.iloc[j]['userID']
+                ratings_u1 = pd.Series(user_movie_matrix[i])
+                ratings_u2 = pd.Series(user_movie_matrix[j])
+                user_sim_matrix[i][j] = similarity(ratings_u1, ratings_u2)
+                user_sim_matrix[j][i] = similarity(ratings_u1, ratings_u2)
+    return user_sim_matrix
+
+def similarity(list_1, list_2):
+    return list_1.corr(list_2)
 
 #####
 ##
