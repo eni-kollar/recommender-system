@@ -38,7 +38,7 @@ users_description = pd.read_csv(users_file, delimiter=';', names=['userID', 'gen
 ratings_description = pd.read_csv(ratings_file, delimiter=';', names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'])
 
-
+# focus on experimentation, give theoritical explaination of why something performs better
 def predict(movies, users, ratings, predictions):
     number_predictions = len(predictions)
 
