@@ -131,7 +131,7 @@ def get_n_nearest_neighbour(user_user_similarity_matrix, n, user_id):
     # get index of the top n items in the array
     closest_n_neighbours_index = all_neighbours_np_array.argsort()[::-1][:n+1]
     # add 1 to the indecies to get the corresponding user_id
-    # (because indecies start from 0, while user_ids start from 1)
+    # (because indecies start from 0, while user_ids start from 1).
     closest_n_neighbours = [i + 1 for i in closest_n_neighbours_index]
     # cut out the user itself from the list
     closest_n_neighbours = closest_n_neighbours[1::]
