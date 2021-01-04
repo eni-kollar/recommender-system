@@ -37,7 +37,8 @@ movies_description = pd.read_csv(movies_file, delimiter=';', names=['movieID', '
 users_description = pd.read_csv(users_file, delimiter=';', names=['userID', 'gender', 'age', 'profession'])
 ratings_description = pd.read_csv(ratings_file, delimiter=';', names=['userID', 'movieID', 'rating'])
 predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['userID', 'movieID'])
-
+def create_user_movie_matrix(movies, users, ratings):
+    user_movie_matrix = ratings.pivot(index='UserID', columns='movieID', values='rating').fillna(0)
 # focus on experimentation, give theoritical explaination of why something performs better
 def predict(movies, users, ratings, predictions):
     number_predictions = len(predictions)
