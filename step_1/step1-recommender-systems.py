@@ -145,11 +145,36 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 #####
 
 def predict_latent_factors(movies, users, ratings, predictions):
-    user_movie_matrix = populate_user_movie_matrix(movies, ratings)
-    user_movie_matrix_normalized, user_mean_rating = normalization(user_movie_matrix)
+    user_movie_matrix = ratings.pivot_table(index='userID', columns='movieID', values='rating').fillna(0)
 
-    return
+    # R = R_df.as_matrix()
+    # user_ratings_mean = np.mean(R, axis=1)
+    # R_demeaned = R - user_ratings_mean.reshape(-1, 1)
 
+    numpy_user_movie_matrix = user_movie_matrix.as_matrix()
+    user_ratings_mean = np.mean(numpy_user_movie_matrix, axis=1)
+    print(len(user_ratings_mean))
+    user_movie_matrix_normalized = numpy_user_movie_matrix - user_ratings_mean.reshape(-1, 1)
+
+    P, D, Q = np.linalg.svd(user_movie_matrix_normalized, full_matrices=False)
+    all_user_predicted_ratings = np.matmul(np.matmul(P, np.diag(D)), Q)
+    preds_df = pd.DataFrame(all_user_predicted_ratings, columns=user_movie_matrix.columns)
+    print(preds_df)
+
+    # predictions = predictions.head(20)
+
+    predicted_ratings = predictions.apply(lambda row: predictions_lf(preds_df, user_ratings_mean, row['userID'],
+                                                                     row['movieID']), axis=1)
+    result_ratings = pd.Series(predicted_ratings).to_numpy()
+    ratings_final = []
+    for i in range(0, len(predictions)):
+        ratings_final.append((i + 1, result_ratings[i]))
+
+    return ratings_final
+
+def predictions_lf(predictions_df, means, user_id, movie_id):
+    m = means[user_id - 1]
+    return np.round(predictions_df.iloc[user_id - 1, movie_id] + m, 4)
 
 
 #####
