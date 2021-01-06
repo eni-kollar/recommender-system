@@ -41,7 +41,7 @@ predictions_description = pd.read_csv(predictions_file, delimiter=';', names=['u
 def normalization(matrix):
     dataframe_mean = matrix.mean(axis = 0, skipna = True)
     # print(matrix.subtract(dataframe_mean, axis = 'rows'))
-    return matrix.subtract(dataframe_mean, axis = 'rows'), dataframe_mean
+    return matrix.subtract(dataframe_mean, axis = 'columns'), dataframe_mean
 
 #####
 ##
@@ -83,28 +83,30 @@ def create_user_similarity_matrix(user_movie_matrix):
 
 def get_n_nearest_neighbour(user_user_similarity_matrix, n, movie_id, rating_matrix, user_id):
     # -1 to get the indexing right
-    print('movieID', movie_id)
-    all_neighbours = user_user_similarity_matrix.iloc[[movie_id]]
+    all_neighbours = user_user_similarity_matrix.iloc[[movie_id - 1]]
     # convert pandas dataframe to numpy ndarray. Get first column of array
     # (it only has one anyway, because we are only taking a single row)
     # to make it a 1D array from a 2D array.
     all_neighbours_np_array = all_neighbours.to_numpy()[0]
     # get index of the top n items in the array
     closest_n_neighbours_index = all_neighbours_np_array.argsort()[::-1][:n+1]
+    # print(closest_n_neighbours_index)
+    # print(user_user_similarity_matrix.iloc[[movie_id, closest_n_neighbours_index]])
     # add 1 to the indecies to get the corresponding user_id
     # (because indecies start from 0, while user_ids start from 1).
-    j = 0
-    res = []
-    for i in range(1, len(closest_n_neighbours_index)):
-        if (j == 5) and (rating_matrix.iloc[closest_n_neighbours_index[i]][user_id] > 0):
-            rating_matrix[i] = np.nan
-            res.append(i)
-            j = j + 1
+    # j = 0
+    # res = []
+    # for i in range(1, len(closest_n_neighbours_index)):
+    #     if (j == 5) and (rating_matrix.iloc[closest_n_neighbours_index[i]][user_id] > 0):
+    #         rating_matrix[i] = np.nan
+    #         res.append(i)
+    #         j = j + 1
 
-    # closest_n_neighbours = [i + 1 for i in closest_n_neighbours_index]
+    closest_n_neighbours = [i + 1 for i in closest_n_neighbours_index]
+    closest_n_neighbours = closest_n_neighbours[1:]
     # cut out the user itself from the list
-    closest_n_neighbours = res
-    print(closest_n_neighbours)
+    # closest_n_neighbours = res
+    # print('closest:', closest_n_neighbours)
     # return list of n most similar user_ids
     return closest_n_neighbours
 
@@ -118,33 +120,44 @@ def get_neighbours(user_mov_matrix, similarity_matrix, user_id, movie_id, movie_
     #     # print(neighbor_ratings)
     #     neighbor_similarity = similarity_matrix[user_id].loc[find_neighbors]
 
-    neighbor_ratings = user_mov_matrix.loc[user_id][find_neighbors].fillna(0)
-    print(neighbor_ratings)
-    neighbor_similarity = similarity_matrix[movie_id].loc[find_neighbors]
+    neighbor_ratings = user_mov_matrix.iloc[user_id - 1][find_neighbors].fillna(0)
+    # print('n_r:', neighbor_ratings)
+    neighbor_similarity = similarity_matrix.iloc[movie_id - 1][find_neighbors]
+    # print('n_s:', neighbor_similarity)
 
 
+
+    # wrk out for cases where there are no ratings - use average rating from that user
+    # 1. filter out neighbours who have not rated the movie
+    # 2. DONE! add it so if there are no neighbours (if the movie has no ratings), return average rating for that user_id
 
     score = np.dot(neighbor_similarity, neighbor_ratings) + movie_mean_rating[movie_id]
     # print(user_mean_rating)
-    print('mean:', movie_mean_rating[movie_id])
-    print('score:', score)
+    # print('mean:', movie_mean_rating[movie_id])
+    # print('score:', score)
+
+    if np.isnan(score):
+        score = get_av_user_rating(user_id, user_mov_matrix)
+        # score = 2.5
     return round(score, 4)
 
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     user_movie_matrix = populate_user_movie_matrix(users, ratings, movies)
+    # print(user_movie_matrix)
+    print(user_movie_matrix)
+    user_movie_matrix, user_mean_rating = normalization(user_movie_matrix)
     print(user_movie_matrix)
 
-    user_movie_matrix, user_mean_rating = normalization(user_movie_matrix)
-
     user_sim_matrix = create_user_similarity_matrix(user_movie_matrix)
+    user_sim_matrix = user_sim_matrix.fillna(0)
 
-    print(user_sim_matrix)
-    predictions = predictions.head(5)
+    # print(user_sim_matrix)
+    # predictions = predictions.head(5)
 
     predicted_ratings = predictions.apply(lambda row: get_neighbours(user_movie_matrix, user_sim_matrix, row['userID'],
-                                                                     row['movieID'], user_mean_rating, 5), axis=1)
+                                                                     row['movieID'], user_mean_rating, 10), axis=1)
 
-    print('all predictions: ', predicted_ratings)
+    # print('all predictions: ', predicted_ratings)
 
     result_ratings = pd.Series(predicted_ratings).to_numpy()
 
@@ -154,7 +167,10 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     return ratings_final
 
 
-
+def get_av_user_rating(user_id, user_movie_matrix):
+    no_zeros_matrix = user_movie_matrix.replace(0, np.NaN)
+    user_mean = no_zeros_matrix.mean(axis=1, skipna=True)
+    return user_mean[user_id - 1]
 
 def predict(movies, users, ratings, predictions):
     number_predictions = len(predictions)
