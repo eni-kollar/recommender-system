@@ -3,6 +3,7 @@ import pandas as pd
 import os.path
 from random import randint
 import time
+from scipy.sparse.linalg import svds
 
 # -*- coding: utf-8 -*-
 """
@@ -110,6 +111,7 @@ def get_neighbours(user_mov_matrix, similarity_matrix, user_id, movie_id, user_m
 def predict_collaborative_filtering(movies, users, ratings, predictions):
     start_t = time.time()
     user_movie_matrix = populate_user_movie_matrix(movies, ratings)
+    print(user_movie_matrix)
     print('creating user_movie matrix took:', time.time() - start_t)
 
     user_movie_matrix, user_mean_rating = normalization(user_movie_matrix)
@@ -144,37 +146,80 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
 ##
 #####
 
-def predict_latent_factors(movies, users, ratings, predictions):
-    user_movie_matrix = ratings.pivot_table(index='userID', columns='movieID', values='rating').fillna(0)
+def return_value(x,y,ratings, default):
+        return 1
 
-    # R = R_df.as_matrix()
-    # user_ratings_mean = np.mean(R, axis=1)
-    # R_demeaned = R - user_ratings_mean.reshape(-1, 1)
+def predict_latent_factors(movies, users, ratings, predictions):
+    # 672, 1569, 1642, 1645, 3153, 532, 821, 1079, 3226, 2395, 637]
+    # user_movie_matrix = ratings.pivot_table(index='userID', columns='movieID', values='rating')
+    # df = pd.DataFrame(np.nan, index=np.arange(1, len(movies) + 1), columns=np.arange(1, len(users) + 1))
+
+    user_data = pd.merge(users, ratings, on='userID')
+    user_movie_matrix = user_data.pivot_table(index='userID', columns='movieID', values='rating')
+    # result_df = pd.DataFrame(movies.apply(lambda x: users.apply(lambda y: return_value(x, y, user_movie_matrix, df))))
+
+    print(user_movie_matrix)
+    # d = pd.DataFrame(0, index=np.arange(movies), columns=movies.columns)
 
     numpy_user_movie_matrix = user_movie_matrix.as_matrix()
-    user_ratings_mean = np.mean(numpy_user_movie_matrix, axis=1)
-    print(len(user_ratings_mean))
-    user_movie_matrix_normalized = numpy_user_movie_matrix - user_ratings_mean.reshape(-1, 1)
 
-    P, D, Q = np.linalg.svd(user_movie_matrix_normalized, full_matrices=False)
-    all_user_predicted_ratings = np.matmul(np.matmul(P, np.diag(D)), Q)
-    preds_df = pd.DataFrame(all_user_predicted_ratings, columns=user_movie_matrix.columns)
-    print(preds_df)
+    # user_ratings_mean = np.mean(numpy_user_movie_matrix, axis=1, skipna=True)
+    user_ratings_mean = np.nanmean(numpy_user_movie_matrix, axis=1)
+    # numpy_user_movie_matrix.fillna(0)
+
+    user_movie_matrix_normalized = numpy_user_movie_matrix - user_ratings_mean.reshape(-1, 1)
+    temp = pd.DataFrame(user_movie_matrix_normalized)
+    temp = temp.fillna(0)
+    user_movie_matrix_normalized = temp.as_matrix()
+    #
+    # print(user_movie_matrix)
+    # print(user_movie_matrix_normalized)
+    # print(user_ratings_mean)
+    #
+    U, sigma, V_t = np.linalg.svd(user_movie_matrix_normalized, full_matrices=False)
+
+    # we didn't implement it first with k, but that drastically improved our accuracy
+
+    k = 20
+
+    sigma = np.diag(sigma[:k])
+    # u[:, :k].dot(np.diag(sigma[:k])).dot(vt[:k])
+
+    all_user_predicted_ratings = np.matmul(U[:, :k], sigma)
+    all_user_predicted_ratings = np.matmul(all_user_predicted_ratings, V_t[:k]) + user_ratings_mean.reshape(-1, 1)
+    # all_user_predicted_ratings = np.dot(np.dot(U, np.diag(sigma)), V_t) + user_ratings_mean.reshape(-1, 1)
+    # print(all_user_predicted_ratings)
+    # preds_df = pd.DataFrame(all_user_predicted_ratings, columns=user_movie_matrix.columns)
+    # print(preds_df)
+
+    # U, sigma, Vt = svds(user_movie_matrix_normalized, k=50)
+    # sigma = np.diag(sigma)
+    # all_user_predicted_ratings = np.dot(np.dot(U, sigma), Vt) + user_ratings_mean.reshape(-1, 1)
+    preds_df = pd.DataFrame(all_user_predicted_ratings, columns=user_movie_matrix.columns.astype(str))
 
     # predictions = predictions.head(20)
 
-    predicted_ratings = predictions.apply(lambda row: predictions_lf(preds_df, user_ratings_mean, row['userID'],
-                                                                     row['movieID']), axis=1)
+    print(preds_df)
+    print(user_ratings_mean)
+    predicted_ratings = predictions.apply(lambda row: predictions_lf(preds_df, row['userID'],
+                                                                      row['movieID'], user_ratings_mean), axis=1)
     result_ratings = pd.Series(predicted_ratings).to_numpy()
+
     ratings_final = []
     for i in range(0, len(predictions)):
         ratings_final.append((i + 1, result_ratings[i]))
 
     return ratings_final
 
-def predictions_lf(predictions_df, means, user_id, movie_id):
-    m = means[user_id - 1]
-    return np.round(predictions_df.iloc[user_id - 1, movie_id] + m, 4)
+def predictions_lf(predictions_df, user_id, movie_id, means):
+    # m = means[user_id - 1]
+    # return np.round(predictions_df.iloc[user_id - 1, movie_id + 1] + m, 4)
+    # return np.round(predictions_df.iloc[user_id - 1, str(movie_id)], 4)
+    try:
+        ind = predictions_df.columns.get_loc(str(movie_id))
+        return np.round(predictions_df.iloc[user_id - 1, ind],4)
+    except:
+        return np.round(means[user_id-1], 4)
 
 
 #####
