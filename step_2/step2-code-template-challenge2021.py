@@ -143,7 +143,7 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     user_movie_matrix, user_mean_rating = normalization(user_movie_matrix_b4)
     print(user_movie_matrix)
 
-    user_sim_matrix = create_cos_similarity_matrix(user_movie_matrix_b4)
+    user_sim_matrix = create_user_similarity_matrix(user_movie_matrix_b4)
     user_sim_matrix = user_sim_matrix.fillna(0)
 
     # print(user_sim_matrix)
@@ -162,11 +162,97 @@ def predict_collaborative_filtering(movies, users, ratings, predictions):
     # print('submitting predictions:', time.time() - start_t)
     return ratings_final
 
+def get_cf_predicted_ratings(movies, users, ratings, predictions):
+    user_movie_matrix_b4 = populate_user_movie_matrix(users, ratings, movies)
+
+    user_movie_matrix, user_mean_rating = normalization(user_movie_matrix_b4)
+    user_sim_matrix = create_user_similarity_matrix(user_movie_matrix_b4)
+    user_sim_matrix = user_sim_matrix.fillna(0)
+
+    predicted_ratings = predictions.apply(lambda row: get_neighbours(user_movie_matrix, user_sim_matrix, row['userID'],
+                                                                     row['movieID'], user_mean_rating, 10), axis=1)
+    result_ratings = pd.Series(predicted_ratings).to_numpy()
+    return result_ratings
+
+
 
 def get_av_user_rating(user_id, user_movie_matrix):
     no_zeros_matrix = user_movie_matrix.replace(0, np.NaN)
     user_mean = no_zeros_matrix.mean(axis=1, skipna=True)
     return user_mean[user_id - 1]
+
+
+#########################
+#########################
+
+
+
+
+def predict_latent_factors_s1(movies, users, ratings, predictions):
+
+    user_data = pd.merge(users, ratings, on='userID')
+    user_movie_matrix = user_data.pivot_table(index='userID', columns='movieID', values='rating')
+    # result_df = pd.DataFrame(movies.apply(lambda x: users.apply(lambda y: return_value(x, y, user_movie_matrix, df))))
+
+    print(user_movie_matrix)
+    # d = pd.DataFrame(0, index=np.arange(movies), columns=movies.columns)
+
+    numpy_user_movie_matrix = user_movie_matrix.as_matrix()
+
+    # user_ratings_mean = np.mean(numpy_user_movie_matrix, axis=1, skipna=True)
+    user_ratings_mean = np.nanmean(numpy_user_movie_matrix, axis=1)
+    # numpy_user_movie_matrix.fillna(0)
+
+    user_movie_matrix_normalized = numpy_user_movie_matrix - user_ratings_mean.reshape(-1, 1)
+    temp = pd.DataFrame(user_movie_matrix_normalized)
+    temp = temp.fillna(0)
+    user_movie_matrix_normalized = temp.as_matrix()
+
+    U, sigma, V_t = np.linalg.svd(user_movie_matrix_normalized, full_matrices=False)
+    k = 25
+
+    sigma = np.diag(sigma[:k])
+
+    all_user_predicted_ratings = np.matmul(U[:, :k], sigma)
+    all_user_predicted_ratings = np.matmul(all_user_predicted_ratings, V_t[:k]) + user_ratings_mean.reshape(-1, 1)
+
+    preds_df = pd.DataFrame(all_user_predicted_ratings, columns=user_movie_matrix.columns.astype(str))
+
+    predicted_ratings = predictions.apply(lambda row: predictions_lf(preds_df, row['userID'],
+                                                                      row['movieID'], user_ratings_mean), axis=1)
+    result_ratings = pd.Series(predicted_ratings).to_numpy()
+
+    ############
+    # GET CF RATINGS
+    cf_weight = 0.60
+    lf_weight = 0.40
+    cf_ratings = get_cf_predicted_ratings(movies, users, ratings, predictions)
+    ratings_final = []
+    for i in range(0, len(predictions)):
+        ratings_final.append((i + 1, result_ratings[i]*lf_weight + cf_ratings[i]*cf_weight))
+
+
+
+    #
+    # for i in range(0, len(ratings_final)):
+    #     ratings_final[i] = result_ratings[i]*lf_weight + cf_ratings[i]*cf_weight
+
+    return ratings_final
+
+def predictions_lf(predictions_df, user_id, movie_id, means):
+    try:
+        ind = predictions_df.columns.get_loc(str(movie_id))
+        return np.round(predictions_df.iloc[user_id - 1, ind],4)
+    except:
+        return np.round(means[user_id-1], 4)
+
+
+
+
+
+
+##########################
+##########################
 
 def cal_cost(theta, X, y):
     m = len(y)
@@ -255,12 +341,12 @@ def predict_latent_factors(movies, users, ratings, predictions):
 
     return ratings_final
 
-def predictions_lf(predictions_df, user_id, movie_id, means):
-    try:
-        ind = predictions_df.columns.get_loc(str(movie_id))
-        return np.round(predictions_df.iloc[user_id - 1, ind],4)
-    except:
-        return np.round(means[user_id-1], 4)
+# def predictions_lf(predictions_df, user_id, movie_id, means):
+#     try:
+#         ind = predictions_df.columns.get_loc(str(movie_id))
+#         return np.round(predictions_df.iloc[user_id - 1, ind],4)
+#     except:
+#         return np.round(means[user_id-1], 4)
 
 #####
 ##
@@ -269,7 +355,7 @@ def predictions_lf(predictions_df, user_id, movie_id, means):
 #####    
 
 ## //!!\\ TO CHANGE by your prediction function
-predictions = predict_collaborative_filtering(movies_description, users_description, ratings_description, predictions_description)
+predictions = predict_latent_factors_s1(movies_description, users_description, ratings_description, predictions_description)
 
 #Save predictions, should be in the form 'list of tuples' or 'list of lists'
 with open(submission_file, 'w') as submission_writer:
