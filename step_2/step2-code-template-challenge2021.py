@@ -254,14 +254,6 @@ def predictions_lf(predictions_df, user_id, movie_id, means):
 ##########################
 ##########################
 
-def cal_cost(theta, X, y):
-    m = len(y)
-    predictions = X.dot(theta)
-    cost = (1 / 2 * m) * np.sum(np.square(predictions - y))
-    return cost
-
-
-
 
 def stochastic_gradient_descent(P, Q, user_movie_matrix):
 
